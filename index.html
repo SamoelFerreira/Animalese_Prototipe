@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Animalese Multi-Personagens (.ogg)</title>
+<style>
+body{
+  font-family:system-ui,Segoe UI,Arial;
+  max-width:900px;
+  margin:32px auto;
+  padding:12px;
+}
+table{
+  border-collapse:collapse;
+  margin-bottom:12px;
+}
+th,td{
+  border:1px solid #ccc;
+  padding:6px 10px;
+}
+textarea{
+  width:100%;
+  height:120px;
+  font-size:16px;
+  margin-bottom:10px;
+}
+button{
+  padding:8px 14px;
+  margin:6px 4px;
+  border:1px solid #ccc;
+  border-radius:8px;
+  background:#f4f4f4;
+  cursor:pointer;
+}
+label{display:block;margin-top:8px;}
+input[type=range]{width:250px;}
+small{color:#555;}
+</style>
+</head>
+<body>
+<h1>🎭 Gerador de Voz Animalese Multi-Personagens</h1>
+<p>Cada personagem tem sua própria pasta de sons, velocidade e pitch.</p>
+
+<!-- 🧑‍🎤 Tabela de personagens -->
+<table>
+  <thead>
+    <tr>
+      <th>Personagem</th>
+      <th>Pitch</th>
+      <th>Velocidade</th>
+      <th>Pasta</th>
+    </tr>
+  </thead>
+  <tbody id="charTable"></tbody>
+</table>
+
+<label>Escolher personagem:
+  <select id="character"></select>
+</label>
+
+<label>Texto:
+  <textarea id="text">Oi, eu sou o Toto!</textarea>
+</label>
+
+<div>
+  <button id="play">▶️ Falar</button>
+  <button id="stop">⏹ Parar</button>
+  <button id="download">⬇️ Baixar WAV</button>
+</div>
+
+<small>Pastas: <code>animalese_sounds/toto/a.ogg</code>, <code>animalese_sounds/mimi/a.ogg</code> etc.</small>
+
+<script>
+/* 🎙️ Configuração dos personagens */
+const characters = {
+  "Toto":  { folder: "animalese_sounds/toto", pitch: 1.0, delay: 50 },
+  "Belle":  { folder: "animalese_sounds/Belle", pitch: 1.0, delay: 50 },
+  "Cleo":  { folder: "animalese_sounds/Cleo", pitch: 1.0, delay: 50 },
+  "Clover":  { folder: "animalese_sounds/Clover", pitch: 1.0, delay: 50 },
+  "Dmitri":  { folder: "animalese_sounds/Dmitri", pitch: 1.0, delay: 50 },
+  "Marie":  { folder: "animalese_sounds/Marie", pitch: 1.0, delay: 50 },
+  "Mana":  { folder: "animalese_sounds/toto", pitch: 1.0, delay: 50 },
+  "Povname":  { folder: "animalese_sounds/Povname", pitch: 1.0, delay: 50 },
+  "Peggy4":  { folder: "animalese_sounds/Peggy4", pitch: 1.0, delay: 50 },
+  "Povname":  { folder: "animalese_sounds/Povname", pitch: 1.0, delay: 50 },
+  "Steffani":  { folder: "animalese_sounds/Steffani", pitch: 1.0, delay: 50 },
+  "Sana":  { folder: "animalese_sounds/Sana", pitch: 1.0, delay: 50 },
+  "Hana":  { folder: "animalese_sounds/Hana", pitch: 1.0, delay: 50 },
+  "Tonya":  { folder: "animalese_sounds/Tonya", pitch: 1.0, delay: 50 },
+};
+
+/* 🎚️ Combinações especiais (dígrafos) */
+const specialCombos = ["dot", "ch", "ph", "th", "sh"];
+
+let audioCtx = null;
+let playing = false;
+let recordedChunks = [];
+
+/* Monta tabela de personagens */
+function loadCharacterTable(){
+  const tbody = document.getElementById("charTable");
+  const select = document.getElementById("character");
+  for (const [name, cfg] of Object.entries(characters)){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${name}</td>
+      <td>${cfg.pitch.toFixed(2)}x</td>
+      <td>${cfg.delay} ms</td>
+      <td>${cfg.folder}</td>`;
+    tbody.appendChild(tr);
+
+    const opt = document.createElement("option");
+    opt.value = name;
+    opt.textContent = name;
+    select.appendChild(opt);
+  }
+}
+loadCharacterTable();
+
+/* Utilitário de pausa */
+function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+/* Tocar uma letra/combo */
+async function playLetter(url, pitch, destNode){
+  try{
+    const response = await fetch(url);
+    if(!response.ok) throw new Error("não encontrado");
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = await audioCtx.decodeAudioData(arrayBuffer);
+    const source = audioCtx.createBufferSource();
+    source.buffer = buffer;
+    source.playbackRate.value = pitch;
+    source.connect(destNode);
+    source.start();
+  }catch(e){}
+}
+
+/* Fala texto com voz do personagem */
+async function speak(text, charCfg){
+  if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  await audioCtx.resume();
+  playing = true;
+
+  const dest = audioCtx.createMediaStreamDestination();
+  const mainGain = audioCtx.createGain();
+  mainGain.connect(dest);
+  mainGain.connect(audioCtx.destination);
+
+  const recorder = new MediaRecorder(dest.stream);
+  recordedChunks = [];
+  recorder.ondataavailable = e => recordedChunks.push(e.data);
+  recorder.start();
+
+  text = text.toLowerCase();
+
+  for(let i=0;i<text.length;i++){
+    if(!playing) break;
+    let matched = false;
+
+    // verifica combinações primeiro
+    for(const combo of specialCombos){
+      if(text.startsWith(combo, i)){
+        await playLetter(`${charCfg.folder}${combo}.ogg`, charCfg.pitch, mainGain);
+        i += combo.length-1;
+        matched = true;
+        break;
+      }
+    }
+
+    if(!matched && /[a-záéíóúàâêôãõ]/.test(text[i])){
+      await playLetter(`${charCfg.folder}${text[i]}.ogg`, charCfg.pitch, mainGain);
+    }
+
+    await sleep(charCfg.delay);
+  }
+
+  recorder.stop();
+  await new Promise(r => recorder.onstop = r);
+  playing = false;
+}
+
+/* Download */
+function downloadWav(){
+  if(!recordedChunks.length){ alert("Nenhum áudio gravado ainda!"); return; }
+  const blob = new Blob(recordedChunks,{type:"audio/wav"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "animalese.wav";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* Botões */
+document.getElementById("play").onclick = async ()=>{
+  const name = document.getElementById("character").value;
+  const charCfg = characters[name];
+  const text = document.getElementById("text").value;
+  await speak(text, charCfg);
+};
+
+document.getElementById("stop").onclick = ()=>{ playing = false; };
+document.getElementById("download").onclick = downloadWav;
+
+</script>
+</body>
+</html>
