@@ -62,6 +62,17 @@ small{color:#555;}
   <textarea id="text">Oi, eu sou o Toto!</textarea>
 </label>
 
+<!-- 🎚️ Sliders para pitch e delay -->
+<label>Pitch:
+  <input type="range" id="pitchSlider" min="0.5" max="3" step="0.1" value="1">
+  <span id="pitchValue">1.0x</span>
+</label>
+
+<label>Delay (ms):
+  <input type="range" id="delaySlider" min="10" max="100" step="1" value="50">
+  <span id="delayValue">50</span>
+</label>
+
 <div>
   <button id="play">▶️ Falar</button>
   <button id="stop">⏹ Parar</button>
@@ -73,7 +84,7 @@ small{color:#555;}
 <script>
 /* 🎙️ Configuração dos personagens */
 const characters = {
-  "Toto":  { folder: "toto/", pitch: 1.0, delay: 40 },
+  "Toto":  { folder: "toto/", pitch: 1.5, delay: 20 },
   "Belle":  { folder: "Belle/", pitch: 1.0, delay: 45 },
   "Cleo":  { folder: "Cleo/", pitch: 1.0, delay: 45 },
   "Clover":  { folder: "Clover/", pitch: 1.0, delay: 50 },
@@ -82,7 +93,6 @@ const characters = {
   "Mana":  { folder: "Mana/", pitch: 1.0, delay: 50 },
   "Povname":  { folder: "Povname/", pitch: 1.0, delay: 50 },
   "Peggy4":  { folder: "Peggy4/", pitch: 1.0, delay: 50 },
-  "Povname":  { folder: "Povname/", pitch: 1.0, delay: 50 },
   "Steffani":  { folder: "Steffani/", pitch: 1.0, delay: 50 },
   "Sana":  { folder: "Sana/", pitch: 1.0, delay: 50 },
   "Hana":  { folder: "Hana/", pitch: 1.0, delay: 50 },
@@ -191,10 +201,32 @@ function downloadWav(){
   URL.revokeObjectURL(url);
 }
 
-/* Botões */
+/* 🎚️ Sliders */
+const pitchSlider = document.getElementById("pitchSlider");
+const delaySlider = document.getElementById("delaySlider");
+const pitchValue = document.getElementById("pitchValue");
+const delayValue = document.getElementById("delayValue");
+
+// Atualiza sliders quando muda o personagem
+document.getElementById("character").onchange = function(){
+  const name = this.value;
+  const charCfg = characters[name];
+  pitchSlider.value = charCfg.pitch;
+  delaySlider.value = charCfg.delay;
+  pitchValue.textContent = charCfg.pitch.toFixed(2) + "x";
+  delayValue.textContent = charCfg.delay;
+};
+
+// Atualiza valores ao mover sliders
+pitchSlider.oninput = ()=>{ pitchValue.textContent = pitchSlider.value + "x"; }
+delaySlider.oninput = ()=>{ delayValue.textContent = delaySlider.value; }
+
+// Botões
 document.getElementById("play").onclick = async ()=>{
   const name = document.getElementById("character").value;
-  const charCfg = characters[name];
+  const charCfg = {...characters[name]}; // copia do config original
+  charCfg.pitch = parseFloat(pitchSlider.value);
+  charCfg.delay = parseInt(delaySlider.value);
   const text = document.getElementById("text").value;
   await speak(text, charCfg);
 };
